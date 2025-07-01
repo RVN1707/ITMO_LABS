@@ -1,3 +1,3 @@
 # ITMO_LABS
 Привет! Меня зовут Руслан и я буду каждое лето (по возможности) загружать все свои лабы и прочие работы, сделанные мной по ходу обучения на ИВТ в ИТМО:Ъ
-![Описание гифки](https://tenor.com/ru/view/mario-dance-moves-party-gif-21254682)
+<div class="tenor-gif-embed" data-postid="21254682" data-share-method="host" data-aspect-ratio="0.61875" data-width="100%"><a href="https://tenor.com/view/mario-dance-moves-party-gif-21254682">Mario Dance Moves GIF</a>from <a href="https://tenor.com/search/mario-gifs">Mario GIFs</a></div> <script type="text/javascript" async src="https://tenor.com/embed.js"></script>

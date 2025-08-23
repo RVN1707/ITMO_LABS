@@ -21,7 +21,7 @@ public class Coordinates implements Serializable {
 
     @Override
     public String toString() {
-        return "Coordinates{" +
+        return "{" +
                 "x=" + x +
                 ", y=" + y +
                 '}';

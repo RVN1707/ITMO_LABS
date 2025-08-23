@@ -28,7 +28,7 @@ public class LocationFrom  implements Serializable {
 
     @Override
     public String toString() {
-        return "LocationFrom{" +
+        return "{" +
                 "x=" + x +
                 ", y=" + y +
                 ", z=" + z +

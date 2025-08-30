@@ -30,12 +30,13 @@ public class CollectionManager {
 
     public Response show(){
         if (collection.isEmpty()) {
-            return new Response("Коллекция пуста!", " ");
+            return new Response("Коллекция пуста!", "");
         } else {
-            StringBuilder response = new StringBuilder();
-            response.append("Элементы коллекции:").append("\n");
-            getCollection().stream().forEach(element -> {response.append(element);response.append("\n");});
-            return new Response(response.toString(), " ");
+            String elements = getCollection().stream()
+                    .map(Object::toString)
+                    .collect(Collectors.joining("\n"));
+
+            return new Response("Элементы коллекции:\n" + elements, " ");
         }
     }
 
@@ -45,10 +46,6 @@ public class CollectionManager {
 
     public void removeLower(Route o) {
         collection.removeIf(route -> route.compareTo(o) < 0);
-    }
-
-    public List<Route> filterContainsName(String name) {
-        return collection.stream().filter(o -> o.getName().contains(name)).toList();
     }
 
     public Response printFieldAscendingDistance() {
@@ -110,5 +107,17 @@ public class CollectionManager {
 
     public void removeById(Long id) {
         collection.removeIf(o -> o.getId().equals(id));
+    }
+
+    public Response filterContainsName(String name){
+        var filteredRoute = collection.stream().filter(o -> o.getName().contains(name)).toList();
+        if (!filteredRoute.isEmpty()) {
+            StringBuilder response = new StringBuilder();
+            response.append("Элементы, значение поля name которых содержит заданную подстроку:").append("\n");
+            filteredRoute.stream().map(response::append).forEach(s -> response.append("\n"));
+            return new Response(response.toString(), " ");
+        } else {
+            return new Response("Ничего не найдено!", "");
+        }
     }
 }

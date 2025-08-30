@@ -183,7 +183,7 @@ public class ServerLogic {
                 session.expectedLength = session.lengthBuffer.getInt();
 
                 if (session.expectedLength <= 0 || session.expectedLength > 1000000000) {
-                    logger.warning("Invalid message length: " + session.expectedLength);
+                    logger.warning("Невалидная длина сообщения: " + session.expectedLength);
                     channel.close();
                     key.cancel();
                     return;
@@ -205,9 +205,9 @@ public class ServerLogic {
                 try (ObjectInputStream ois = new ObjectInputStream(
                         new ByteArrayInputStream(session.dataBuffer.array()))) {
                     session.request = (Request) ois.readObject();
-                    logger.info("Received command: " + session.request.getCommandName());
+                    logger.info("Полученная команда: " + session.request.getCommandName());
                 } catch (ClassNotFoundException | IOException e) {
-                    logger.log(Level.SEVERE, "Error processing request", e);
+                    logger.log(Level.SEVERE, "Ошибка чтения запроса", e);
                     channel.close();
                     key.cancel();
                     return;
@@ -226,7 +226,7 @@ public class ServerLogic {
         Request request = session.request;
 
         if (request == null) {
-            logger.warning("Request is null!");
+            logger.warning("Запрос пустой");
             return;
         }
 

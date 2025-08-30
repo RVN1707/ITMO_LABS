@@ -2,6 +2,7 @@ package org.example.Commands;
 
 import org.example.Managers.CollectionManager;
 import org.example.Response;
+import org.example.User;
 import org.example.exemplars.Route;
 
 public class RemoveGreaterCommand implements CommandInterface{
@@ -13,7 +14,7 @@ public class RemoveGreaterCommand implements CommandInterface{
     }
 
     @Override
-    public Response execute(String[] args, Route routeObject) {
+    public Response execute(User user, String[] args, Route routeObject) {
         if (args.length != 0) {
             return new Response("Команда не принимает аргументы!", " ");
         }

@@ -2,7 +2,7 @@ package org.example;
 
 import org.example.RuntimeParsers.RouteInteractiveParser;
 import org.example.exceptions.ScriptRecursionException;
-import java.nio.channels.ClosedChannelException;
+import java.security.NoSuchAlgorithmException;
 import java.nio.file.InvalidPathException;
 import java.nio.channels.SocketChannel;
 import static java.lang.System.exit;
@@ -19,14 +19,16 @@ public class ClientLogic {
     private final int port;
     private final InetAddress host;
     private SocketChannel channel;
+
     Scanner scanner = new Scanner(System.in);
+    User user;
 
     public ClientLogic(InetAddress host, int port) {
         this.port = port;
         this.host = host;
     }
 
-    public void run() {
+    public void run() throws IOException, ClassNotFoundException {
         while (true) {
             try {
                 SocketAddress address = new InetSocketAddress(host, port);
@@ -38,13 +40,15 @@ public class ClientLogic {
             } catch (IOException e) {
                 System.out.println("Сервер недоступен. Повторная попытка через 5 секунд...");
             }
+
             try {
                 Thread.sleep(5000);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException ex) {
                 System.out.println("Ожидание прервано. Завершение работы клиента.");
                 exit(1);
             }
         }
+        authenticateUser();
 
         try {
             while (true) {
@@ -57,12 +61,13 @@ public class ClientLogic {
                 String inputLine = scanner.nextLine().trim();
 
                 if (inputLine.isEmpty()) {
-                    continue; // просто ждём следующую команду
+                    continue; // просто снова выводим приглашение
                 }
 
-                String[] input = (inputLine + " ").trim().split(" ");
+                String[] input = inputLine.split(" ", 2); // Делим на команду и аргументы
                 String command = input[0].trim();
-                String[] arguments = Arrays.copyOfRange(input, 1, input.length);
+                String[] arguments = input.length > 1 ? input[1].trim().split(" ") : new String[0];
+
                 processUserPrompt(command, arguments);
             }
         } catch (NoSuchElementException e) {
@@ -79,20 +84,84 @@ public class ClientLogic {
         }
     }
 
+    private void authenticateUser() {
+        try {
+            while (true) {
+                System.out.println("Введите логин: ");
+                String username = scanner.nextLine().trim();
+
+                System.out.println("Введите пароль: ");
+                String password = scanner.nextLine().trim();
+
+                user = new User(username, PasswordHasher.getHash(password));
+
+                Request userAuthenticationRequest = new Request(user, false);
+                Response response = sendAndReceive(userAuthenticationRequest);
+
+                if (response.getuserAuthentication()) {
+                    printResponse(response);
+                    break;
+                } else {
+                    printResponse(response);
+                    if (response.getMessage().equals("Пользователя " + user.getUsername() + " не существует")) {
+                        System.out.println("Если вы хотите зарегистрироваться, нажмите 'y'");
+                        String ans = scanner.nextLine().trim();
+                        if (ans.equalsIgnoreCase("y")) {
+                            while (!registerUser()) {
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (NoSuchElementException e) {
+            System.out.println("Остановка клиента через консоль");
+            exit(1);
+        } catch (Exception e) {
+            e.printStackTrace();
+            exit(1);
+        }
+    }
+
+    private boolean registerUser() throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
+        try {
+            System.out.println("Введите логин: ");
+            String username = scanner.nextLine().trim();
+
+            System.out.println("Введите пароль: ");
+            String password = scanner.nextLine().trim();
+
+            user = new User(username, PasswordHasher.getHash(password));
+
+            Request userAuthenticationRequest = new Request(user, true);
+            Response response = sendAndReceive(userAuthenticationRequest);
+            printResponse(response);
+            return response.getuserAuthentication();
+
+        } catch (NoSuchElementException e) {
+            System.out.println("Остановка клиента через консоль");
+            exit(1);
+            return false;
+        }
+    }
+
     private void processUserPrompt(String command, String[] arguments) throws IOException, ClassNotFoundException {
         Request request;
         if (command.equalsIgnoreCase("add") ||
                 command.equalsIgnoreCase("update") ||
-                command.equalsIgnoreCase("remove_greater") ||
-                command.equalsIgnoreCase("add_if_min") ||
-                command.equalsIgnoreCase("remove_lower")) {
-            Route objArgument = new RouteInteractiveParser().parse();
-            request = new Request(command, arguments, objArgument);
+                command.equalsIgnoreCase("removegreater") ||
+                command.equalsIgnoreCase("addifmin") ||
+                command.equalsIgnoreCase("removelower")) {
+
+            Route objArgument = new RouteInteractiveParser(user.getUsername()).parse();
+            request = new Request(user, command, arguments, objArgument);
             Response response = sendAndReceive(request);
             printResponse(response);
+
         } else if (command.equalsIgnoreCase("exit")) {
             System.out.println("Работа клиентского приложения завершена");
             exit(0);
+
         } else if (command.equalsIgnoreCase("execute_script")) {
             String path = String.join(" ", arguments).trim();
             if (path.isEmpty()) {
@@ -100,51 +169,45 @@ public class ClientLogic {
             } else {
                 executeScript(path);
             }
+
         } else {
-            request = new Request(command, arguments);
+            request = new Request(user, command, arguments);
             Response response = sendAndReceive(request);
             printResponse(response);
         }
     }
 
-    private Response sendAndReceive(Request request) throws ClassNotFoundException {
-        try {
-            ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-            try (ObjectOutputStream objOut = new ObjectOutputStream(byteStream)) {
-                objOut.writeObject(request);
-            }
-            byte[] requestData = byteStream.toByteArray();
+    private Response sendAndReceive(Request request) throws IOException, ClassNotFoundException {
+        ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+        try (ObjectOutputStream objOut = new ObjectOutputStream(byteStream)) {
+            objOut.writeObject(request);
+        }
+        byte[] requestData = byteStream.toByteArray();
 
-            ByteBuffer lengthBuffer = ByteBuffer.allocate(4).putInt(requestData.length);
-            lengthBuffer.flip();
+        ByteBuffer lengthBuffer = ByteBuffer.allocate(4).putInt(requestData.length);
+        lengthBuffer.flip();
+        channel.write(lengthBuffer);
 
-            channel.write(lengthBuffer);
-            ByteBuffer dataBuffer = ByteBuffer.wrap(requestData);
-            while (dataBuffer.hasRemaining()) {
-                channel.write(dataBuffer);
-            }
+        ByteBuffer dataBuffer = ByteBuffer.wrap(requestData);
+        while (dataBuffer.hasRemaining()) {
+            channel.write(dataBuffer);
+        }
 
-            ByteBuffer responseLengthBuffer = ByteBuffer.allocate(4);
-            while (responseLengthBuffer.hasRemaining()) {
-                channel.read(responseLengthBuffer);
-            }
-            responseLengthBuffer.flip();
-            int responseLength = responseLengthBuffer.getInt();
+        ByteBuffer responseLengthBuffer = ByteBuffer.allocate(4);
+        while (responseLengthBuffer.hasRemaining()) {
+            channel.read(responseLengthBuffer);
+        }
+        responseLengthBuffer.flip();
+        int responseLength = responseLengthBuffer.getInt();
 
-            ByteBuffer responseBuffer = ByteBuffer.allocate(responseLength);
-            while (responseBuffer.hasRemaining()) {
-                channel.read(responseBuffer);
-            }
+        ByteBuffer responseBuffer = ByteBuffer.allocate(responseLength);
+        while (responseBuffer.hasRemaining()) {
+            channel.read(responseBuffer);
+        }
 
-            try (ObjectInputStream objIn = new ObjectInputStream(
-                    new ByteArrayInputStream(responseBuffer.array()))) {
-                return (Response) objIn.readObject();
-            }
-        } catch (ClosedChannelException e) {
-            System.err.println("Канал был закрыт: " + e.getMessage());
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException("Ошибка ввода-вывода", e);
+        try (ObjectInputStream objIn = new ObjectInputStream(
+                new ByteArrayInputStream(responseBuffer.array()))) {
+            return (Response) objIn.readObject();
         }
     }
 
@@ -156,7 +219,7 @@ public class ClientLogic {
         }
     }
 
-    private void executeScript(String path) {
+    private void executeScript(String path){
         if (path.isBlank()) {
             System.out.println("Неверные аргументы команды");
             return;
@@ -177,19 +240,15 @@ public class ClientLogic {
                     continue;
                 }
 
-                String[] input = line.split(" ", 2); // Делим на команду и аргументы (максимум 2 части)
+                String[] input = line.split(" ", 2);
                 String command = input[0].trim();
                 String[] arguments = input.length > 1 ? input[1].trim().split(" ") : new String[0];
 
                 if (command.equalsIgnoreCase("execute_script")) {
-                    if (arguments.length == 0) {
-                        System.out.println("Ошибка: не указан путь к скрипту.");
-                        continue;
-                    }
                     try {
-                        Path nestedScriptPath = Paths.get(String.join(" ", arguments)).getFileName();
-                        if (scriptsNames.contains(nestedScriptPath)) {
-                            throw new ScriptRecursionException("Рекурсивный вызов скрипта запрещён: " + nestedScriptPath);
+                        Path nestedScript = Paths.get(String.join(" ", arguments)).getFileName();
+                        if (scriptsNames.contains(nestedScript)) {
+                            throw new ScriptRecursionException("Рекурсивный вызов скрипта запрещён: " + nestedScript);
                         }
                         executeScript(String.join(" ", arguments));
                     } catch (ScriptRecursionException e) {
@@ -206,12 +265,10 @@ public class ClientLogic {
 
         } catch (FileNotFoundException e) {
             System.out.println("Файл " + path + " не найден");
-        } catch (NoSuchElementException e) {
-            System.out.println("Файл " + path + " пуст или содержит только пустые строки");
         } catch (SecurityException e) {
-            System.out.println("Недостаточно прав для чтения файла " + path);
+            System.out.println("Нет прав на чтение файла " + path);
         } catch (InvalidPathException e) {
-            System.out.println("Проверьте путь к файлу. В нём не должно быть лишних символов");
+            System.out.println("Некорректный путь: " + path);
         } catch (IOException e) {
             System.out.println("Ошибка ввода/вывода при чтении файла " + path);
         } catch (Exception e) {

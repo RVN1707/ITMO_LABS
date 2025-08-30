@@ -2,6 +2,7 @@ package org.example.Commands;
 
 import org.example.Managers.CollectionManager;
 import org.example.Response;
+import org.example.User;
 import org.example.exemplars.Route;
 
 public class RemoveLowerCommand implements CommandInterface {
@@ -13,18 +14,18 @@ public class RemoveLowerCommand implements CommandInterface {
     }
 
     @Override
-    public Response execute(String[] args, Route routeObject) {
+    public Response execute(User user, String[] args, Route routeObject) {
         if (args.length != 0) {
             return new Response("Команда не принимает аргументы!", " ");
         }
 
         var size = manager.getCollection().size();
         manager.removeLower(routeObject);
-        return new Response("Удалено " + (size - manager.getCollection().size()) + " элементов, меньшие, чем заданный", " ");
+        return new Response("Удалено " + (size - manager.getCollection().size()) + " элементов, меньших, чем заданный", " ");
     }
 
     @Override
     public String toString() {
-        return ": удалить из коллекции все элементы, меньших, чем заданный";
+        return ": удалить из коллекции все элементы, меньшие, чем заданный";
     }
 }

@@ -1,16 +1,15 @@
 package org.example.Managers;
-import java.io.*;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
+
+import org.example.FileParsers.FileParserRoute;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
-import org.example.FileParsers.FileParserRoute;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.example.exemplars.Route;
+import java.util.Collection;
+import java.nio.file.Paths;
 import java.util.Map;
+import java.io.*;
 
 public class FileManager {
     private final String Pathfile;
@@ -19,7 +18,6 @@ public class FileManager {
     public FileManager(String Pathfile, CollectionManager collectionManager) {
         this.Pathfile = System.getenv(Pathfile);
         System.out.println(this.Pathfile);
-        List<String[]> csvDataList = new ArrayList<>();
         this.collectionManager=collectionManager;
     }
 

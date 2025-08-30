@@ -2,7 +2,6 @@ package org.example.Utils;
 
 import java.util.*;
 import java.util.stream.*;
-import java.util.function.*;
 
 public class MapUtil {
     public Map<String, String> getSubMapByPrefix(Map<String, String> originalMap, String prefix) {
@@ -13,7 +12,6 @@ public class MapUtil {
                         Map.Entry::getValue,
                         (oldVal, newVal) -> oldVal,
                         HashMap::new
-
                 ));
     }
 }

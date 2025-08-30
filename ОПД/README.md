@@ -5,6 +5,5 @@
 ### Также к лабам прикладываю удобный эмулятор БЭВМ-NG, в котором можно делать трассировку :Ъ
 
 <div align="center">
-  <img src="https://i.programmerhumor.io/2024/01/programmerhumor-io-programming-memes-a7228fee2ed4f22.jpe
-" width="500">
+  <img src="https://cs8.pikabu.ru/post_img/2019/01/16/5/1547621395186276540.jpg" width="500">
 </div>

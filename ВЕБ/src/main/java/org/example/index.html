@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Checker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Target Checker</h1>
+            <p>Проверка попадания точки в область</p>
+            <div class="student-info">
+                <div class="info-item">ФИО: Валиев Руслан Новруз оглы</div>
+                <div class="info-item">Группа: P3231</div>
+                <div class="info-item">ИСУ: 465346</div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="form-section">
+                <form id="coord-form">
+                    <div class="input-group">
+                        <label class="input-label">Выберите значение X:</label>
+                        <div class="coord-buttons" id="x-buttons">
+                            <!-- Кнопки создаются через JS -->
+                        </div>
+                        <div class="error" id="x-error">Пожалуйста, выберите значение X</div>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Введите значение Y:</label>
+                        <input type="text" id="y-input" class="text-input" 
+                               placeholder="Число от -3 до 3 (например: 1.5)">
+                        <div class="error" id="y-error">Введите корректное значение Y от -3 до 3</div>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Выберите значения R:</label>
+                        <div class="checkbox-group" id="r-checkboxes">
+                            <!-- Чекбоксы создаются через JS -->
+                        </div>
+                        <div class="error" id="r-error">Выберите хотя бы одно значение R</div>
+                    </div>
+
+                    <button type="submit" class="submit-btn">
+                        Проверить точку
+                    </button>
+                    
+                    <div class="result" id="result"></div>
+                    <div class="status" id="status" style="display: none;"></div>
+
+                    <!-- Таблица результатов -->
+                    <div class="table-container">
+                        <table class="results-table" id="results-table">
+                            <thead>
+                                <tr>
+                                    <th>X</th>
+                                    <th>Y</th>
+                                    <th>R</th>
+                                    <th>Результат</th>
+                                    <th>Время выполнения</th>
+                                    <th>Текущее время</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-body">
+                                <!-- Данные будут добавляться через JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button type="button" class="clear-btn" id="clear-btn" style="display: none;">
+                        Очистить таблицу
+                    </button>
+                </form>
+            </div>
+
+            <div class="graph-section">
+                <canvas id="graph" width="500" height="500"></canvas>
+                <div class="status" id="graph-status">Выберите значения R для отображения области</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -199,12 +199,6 @@ body {
     font-size: 1.1em;
 }
 
-.result.success {
-    background: linear-gradient(135deg, #d4edda, #c3e6cb);
-    color: #155724;
-    border: 2px solid #c3e6cb;
-}
-
 .result.error {
     background: linear-gradient(135deg, #f8d7da, #f5c6cb);
     color: #721c24;
@@ -297,55 +291,4 @@ canvas {
 .clear-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
-}
-
-@media (max-width: 768px) {
-    .content {
-        grid-template-columns: 1fr;
-    }
-    
-    .graph-section {
-        border-left: none;
-        border-top: 3px solid #e9ecef;
-    }
-
-    .results-table {
-        font-size: 0.85em;
-    }
-
-    .results-table th,
-    .results-table td {
-        padding: 8px 10px;
-    }
-
-    .coord-button {
-        padding: 8px 10px;
-        font-size: 0.9em;
-    }
-
-    canvas {
-        width: 100%;
-        max-width: 400px;
-        height: 400px;
-    }
-}
-
-@media (max-width: 480px) {
-    .form-section {
-        padding: 25px;
-    }
-    
-    .graph-section {
-        padding: 25px;
-    }
-    
-    .coord-button {
-        padding: 6px 8px;
-        font-size: 0.85em;
-    }
-
-    canvas {
-        max-width: 350px;
-        height: 350px;
-    }
 }

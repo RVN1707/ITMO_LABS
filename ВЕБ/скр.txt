@@ -10,8 +10,26 @@ document.addEventListener('DOMContentLoaded', function() {
     initRCheckboxes();
     setupFormHandler();
     setupClearButton();
+    loadInitialData();
     drawGraph();
 });
+
+// Функция для загрузки данных при загрузке страницы
+async function loadInitialData() {
+    try {
+        showLoading('Загрузка данных...');
+        
+        // Отправляем POST запрос для получения текущих данных
+        const response = await sendToBackend({
+            action: 'get_data'
+        });
+        
+        processServerResponse(response);
+        
+    } catch (error) {
+        hideResult();
+    }
+}
 
 function initXButtons() {
     const xValues = ['-3', '-2', '-1', '0', '1', '2', '3', '4', '5'];
@@ -37,6 +55,10 @@ function initXButtons() {
 
 function initRCheckboxes() {
     const container = document.getElementById('r-checkboxes');
+    
+    availableRValues.forEach(value => {
+        allPoints[value] = [];
+    });
     
     availableRValues.forEach(value => {
         const item = document.createElement('div');
@@ -83,47 +105,17 @@ function setupFormHandler() {
             showLoading('Проверка точки...');
             
             try {
-                // Отправляем только для максимального R
                 const maxR = Math.max(...selectedR);
-                const response = await sendToBackend(selectedX, yValue, maxR);
+                const response = await sendToBackend({
+                    x: selectedX,
+                    y: yValue,
+                    r: maxR
+                });
                 
-                if (response && response.success !== undefined) {
-                    const resultData = {
-                        x: selectedX,
-                        y: yValue,
-                        r: maxR,
-                        hit: response.result.hit,
-                        execution_time: response.result.execution_time,
-                        current_time: response.result.current_time,
-                        hit_icon: response.result.hit_icon || (response.result.hit ? '✅' : '❌')
-                    };
-                    
-                    allResults.push(resultData);
-                    
-                    // Сохраняем точку только для максимального R
-                    if (!allPoints[maxR]) {
-                        allPoints[maxR] = [];
-                    }
-                    
-                    allPoints[maxR].push({
-                        x: selectedX, 
-                        y: yValue, 
-                        hit: response.result.hit,
-                        timestamp: new Date().getTime()
-                    });
-                    
-                    // Убираем все сообщения о результате
-                    hideResult();
-                    
-                } else {
-                    showResult(`Ошибка: Неверный формат ответа от сервера`, 'error');
-                }
-                
-                updateResultsTable();
-                drawGraph();
+                processServerResponse(response);
                 
             } catch (error) {
-                showResult(`Ошибка: ${error.message}`, 'error');
+                showResult(`Ошибка: ${error.message}`);
             }
         }
     });
@@ -145,25 +137,95 @@ function setupFormHandler() {
             hideError('y-error');
         }
     });
+}
 
-    document.getElementById('y-input').addEventListener('blur', function() {
-        const value = this.value.replace(',', '.');
-        if (value === '' || value === '-') {
-            this.style.borderColor = '#ddd';
+function setupClearButton() {
+    document.getElementById('clear-btn').addEventListener('click', async function() {
+        try {
+            showLoading('Очистка данных...');
+            
+            const response = await sendToBackend({
+                action: 'clear'
+            });
+            
+            processServerResponse(response);
+                
+        } catch (error) {
+            showResult('Ошибка при очистке данных: ' + error.message);
         }
     });
 }
 
-function setupClearButton() {
-    document.getElementById('clear-btn').addEventListener('click', function() {
-        allResults = [];
-        allPoints = {};
-        availableRValues.forEach(r => {
-            allPoints[r] = [];
+function processServerResponse(response) {
+    allResults = [];
+    
+    if (response && response.success) {
+        // Обрабатываем разные форматы ответа
+        let resultsArray = [];
+        
+        // Формат нового бэкенда
+        if (response.results && Array.isArray(response.results)) {
+            resultsArray = response.results;
+        }
+        // Формат старого бэкенда
+        else if (response.all_results && Array.isArray(response.all_results)) {
+            resultsArray = response.all_results;
+        }
+        // Одиночный результат
+        else if (response.new_result && typeof response.new_result === 'object') {
+            resultsArray = [response.new_result];
+        }
+        
+        // Обрабатываем найденные результаты
+        resultsArray.forEach(item => {
+            if (item && typeof item === 'object') {
+                const result = createResultObject(item);
+                allResults.push(result);
+            }
         });
-        updateResultsTable();
-        drawGraph();
-        hideResult();
+        
+        // Если есть отдельный new_result (новый бэкенд)
+        if (response.new_result && typeof response.new_result === 'object' && !resultsArray.includes(response.new_result)) {
+            const newResult = createResultObject(response.new_result);
+            allResults.push(newResult);
+        }
+    }
+    
+    updatePointsFromResults();
+    hideResult();
+    updateResultsTable();
+    drawGraph();
+}
+
+function createResultObject(item) {
+    return {
+        x: typeof item.x === 'number' ? item.x : 0,
+        y: typeof item.y === 'number' ? item.y : 0,
+        r: typeof item.r === 'number' ? item.r : 0,
+        hit: Boolean(item.hit),
+        execution_time: typeof item.execution_time === 'number' ? item.execution_time : 0,
+        current_time: typeof item.current_time === 'string' ? item.current_time : '',
+        hit_icon: typeof item.hit_icon === 'string' ? item.hit_icon : (item.hit ? '✅' : '❌')
+    };
+}
+
+function updatePointsFromResults() {
+    availableRValues.forEach(r => {
+        allPoints[r] = [];
+    });
+    
+    allResults.forEach(result => {
+        if (result && typeof result.r === 'number') {
+            const r = result.r;
+            if (availableRValues.includes(r)) {
+                allPoints[r].push({
+                    x: result.x,
+                    y: result.y,
+                    hit: result.hit,
+                    timestamp: new Date().getTime()
+                });
+            }
+        }
     });
 }
 
@@ -186,7 +248,6 @@ function updateResultsTable() {
     allResults.slice().reverse().forEach(result => {
         const row = document.createElement('tr');
         
-        // Форматируем время выполнения - если 0, показываем "<1 мс"
         const executionTime = result.execution_time === 0 ? '<1' : result.execution_time;
         
         row.innerHTML = `
@@ -242,9 +303,9 @@ function showLoading(message) {
     result.style.display = 'block';
 }
 
-function showResult(message, type) {
+function showResult(message) {
     const result = document.getElementById('result');
-    result.className = `result ${type}`;
+    result.className = 'result error';
     result.textContent = message;
     result.style.display = 'block';
 }
@@ -254,50 +315,41 @@ function hideResult() {
     result.style.display = 'none';
 }
 
-async function sendToBackend(x, y, r) {
+async function sendToBackend(data) {
+    let response;
     try {
-        const response = await fetch('/fcgi-bin/untitled-1.0-SNAPSHOT.jar', {
+        response = await fetch('/fcgi-bin/untitled-1.0-SNAPSHOT.jar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                x: x,
-                y: y,
-                r: r
-            })
+            body: JSON.stringify(data)
         });
-        
-        if (!response.ok) {
-            throw new Error(`Ошибка сервера: ${response.status} ${response.statusText}`);
-        }
-        
-        const responseText = await response.text();
-        console.log('Raw response:', responseText);
-        
-        let fixedJson = responseText
-            .replace(/'/g, '"')
-            .replace(/(\d),(\d)/g, '$1.$2');
-        
-        console.log('Fixed JSON:', fixedJson);
-        
-        let data;
-        try {
-            data = JSON.parse(fixedJson);
-        } catch (e) {
-            fixedJson = fixedJson
-                .replace(/([\[:])?(\d+),(\d+)([,\}\]])/g, '$1$2.$3$4')
-                .replace(/,(\s*[}\]])/g, '$1');
-            
-            console.log('Aggressively fixed JSON:', fixedJson);
-            data = JSON.parse(fixedJson);
-        }
-        
-        return data;
-        
     } catch (error) {
-        console.error('Request error:', error);
-        throw error;
+        throw new Error('Ошибка сети');
+    }
+    
+    if (!response.ok) {
+        if (response.status === 400) {
+            throw new Error('Некорректный запрос');
+        } else if (response.status === 500) {
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                throw new Error('Сервер недоступен');
+            }
+            throw new Error(errorData.error || 'Ошибка сервера');
+        } else {
+            throw new Error(`Ошибка HTTP: ${response.status}`);
+        }
+    }
+    
+    try {
+        const responseData = await response.json();
+        return responseData;
+    } catch (error) {
+        throw new Error('Неверный ответ от сервера');
     }
 }
 
@@ -312,19 +364,15 @@ function drawGraph() {
 
     ctx.clearRect(0, 0, width, height);
 
-    // Фон
     ctx.fillStyle = '#f8f9fa';
     ctx.fillRect(0, 0, width, height);
 
-    // Области мишени отображаются только если выбраны R
     if (selectedR.length > 0) {
         ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
         
-        // Прямоугольник
         ctx.fillRect(centerX - (currentR/2) * scale, centerY - currentR * scale, 
                     (currentR/2) * scale, currentR * scale);
         
-        // Круг
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.lineTo(centerX, centerY + (currentR/2) * scale);
@@ -332,7 +380,6 @@ function drawGraph() {
         ctx.closePath();
         ctx.fill();
         
-        // Треугольник
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.lineTo(centerX + (currentR/2) * scale, centerY);
@@ -341,46 +388,38 @@ function drawGraph() {
         ctx.fill();
     }
 
-    // Оси всегда отображаются
     ctx.strokeStyle = '#2c3e50';
     ctx.lineWidth = 2;
     
-    // Ось X
     ctx.beginPath();
     ctx.moveTo(30, centerY);
     ctx.lineTo(width - 30, centerY);
     ctx.stroke();
     
-    // Ось Y
     ctx.beginPath();
     ctx.moveTo(centerX, 30);
     ctx.lineTo(centerX, height - 30);
     ctx.stroke();
 
-    // Стрелки
     ctx.fillStyle = '#2c3e50';
     
-    // Стрелка X
     ctx.beginPath();
     ctx.moveTo(width - 40, centerY - 8);
     ctx.lineTo(width - 20, centerY);
     ctx.lineTo(width - 40, centerY + 8);
     ctx.fill();
     
-    // Стрелка Y
     ctx.beginPath();
     ctx.moveTo(centerX - 8, 40);
     ctx.lineTo(centerX, 20);
     ctx.lineTo(centerX + 8, 40);
     ctx.fill();
 
-    // Подписи осей
     ctx.font = '16px Arial';
     ctx.fillStyle = '#2c3e50';
     ctx.fillText('X', width - 15, centerY - 15);
     ctx.fillText('Y', centerX + 15, 25);
 
-    // Деления
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -390,14 +429,12 @@ function drawGraph() {
         const x = centerX + i * scale;
         const y = centerY - i * scale;
         
-        // Деления X
         ctx.beginPath();
         ctx.moveTo(x, centerY - 5);
         ctx.lineTo(x, centerY + 5);
         ctx.stroke();
         ctx.fillText(i, x, centerY + 20);
         
-        // Деления Y
         ctx.beginPath();
         ctx.moveTo(centerX - 5, y);
         ctx.lineTo(centerX + 5, y);
@@ -405,19 +442,17 @@ function drawGraph() {
         ctx.fillText(i, centerX - 20, y);
     }
 
-    // Центр
     ctx.fillText('0', centerX - 15, centerY + 20);
     
-    // Точки отображаются только если выбраны R
     if (selectedR.length > 0 && allPoints[currentR]) {
         allPoints[currentR].forEach(point => {
             drawPoint(point.x, point.y, point.hit);
         });
     }
     
-    // Обновляем статус графика
     if (selectedR.length > 0) {
-        document.getElementById('graph-status').textContent = `Текущий R: ${currentR} (точек: ${allPoints[currentR] ? allPoints[currentR].length : 0})`;
+        const pointsCount = allPoints[currentR] ? allPoints[currentR].length : 0;
+        document.getElementById('graph-status').textContent = `Текущий R: ${currentR} (точек: ${pointsCount})`;
     } else {
         document.getElementById('graph-status').textContent = 'Выберите значения R для отображения области';
     }

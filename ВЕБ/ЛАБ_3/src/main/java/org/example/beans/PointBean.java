@@ -43,7 +43,7 @@ public class PointBean implements Serializable {
         PointResult result = new PointResult(x, y, r, hit, execTime);
         pointRepository.save(result);
 
-        return "main.xhtml?faces-redirect=true";
+        return "main";
     }
 
     // Получение всех результатов
@@ -53,7 +53,7 @@ public class PointBean implements Serializable {
 
     public String clearHistory() {
         pointRepository.deleteAll();
-        return "main.xhtml?faces-redirect=true";
+        return "main";
     }
 
     public Double getX() {

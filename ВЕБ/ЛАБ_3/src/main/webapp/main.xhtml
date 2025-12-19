@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:f="http://xmlns.jcp.org/jsf/core">
+
+<h:head>
+    <title>Проверка попадания точки в область</title>
+    <meta charset="UTF-8"/>
+
+    <script type="text/javascript">
+        //<![CDATA[
+        const centerX = 200;
+        const centerY = 200;
+        const unit = 40;
+
+        // Функция для получения точек из таблицы
+        function getPointsFromTable() {
+            const points = [];
+
+            // Находим таблицу результатов
+            const table = document.querySelector('.results-table');
+            if (!table) return points;
+
+            // Находим все строки таблицы (кроме заголовка)
+            const rows = table.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 4) {
+                    try {
+                        // Читаем данные из ячеек таблицы
+                        const x = parseFloat(cells[0].textContent.trim().replace(',', '.'));
+                        const y = parseFloat(cells[1].textContent.trim().replace(',', '.'));
+                        const r = parseFloat(cells[2].textContent.trim().replace(',', '.'));
+                        const hit = cells[3].textContent.trim().includes('Попадание');
+
+                        points.push({x, y, r, hit});
+                    } catch (e) {
+                        // Игнорируем ошибки парсинга
+                    }
+                }
+            });
+
+            return points;
+        }
+
+        // Функция отрисовки точек на графике
+        function drawPoints(ctx, currentR) {
+    const points = getPointsFromTable();
+
+    // Допустимые значения R с шагом 0.5
+    const allowedRValues = [1.0, 1.5, 2.0, 2.5, 3.0];
+
+    points.forEach(point => {
+        // Находим ближайшее допустимое значение для point.r
+        const pointR = allowedRValues.reduce((a, b) =>
+            Math.abs(b - point.r) < Math.abs(a - point.r) ? b : a
+        );
+
+        // Находим ближайшее допустимое значение для currentR
+        const currentRRounded = allowedRValues.reduce((a, b) =>
+            Math.abs(b - currentR) < Math.abs(a - currentR) ? b : a
+        );
+
+        if (pointR === currentRRounded) {
+            // Преобразуем координаты
+            const canvasX = centerX + point.x * unit;
+            const canvasY = centerY - point.y * unit;
+
+            // Выбираем цвет в зависимости от результата
+            ctx.fillStyle = point.hit ? 'green' : 'red';
+
+            // Рисуем точку
+            ctx.beginPath();
+            ctx.arc(canvasX, canvasY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Черная обводка
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            }
+        });
+    }
+
+        // Основная функция отрисовки графика
+        function drawCanvas() {
+            const canvas = document.getElementById('graph');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            // Очищаем canvas
+            ctx.clearRect(0, 0, 400, 400);
+
+            // Получаем текущий R
+            const rInput = document.getElementById('inputForm:r');
+            let currentR = 1.0;
+            if (rInput && rInput.value) {
+                currentR = parseFloat(rInput.value) || 1.0;
+            }
+
+            // Рисуем оси
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+
+            // Ось X
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(400, centerY);
+            ctx.stroke();
+
+            // Ось Y
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, 400);
+            ctx.stroke();
+
+            // Подписи осей
+            ctx.font = '12px Arial';
+            ctx.fillStyle = 'black';
+            ctx.fillText('X', 390, centerY - 5);
+            ctx.fillText('Y', centerX + 5, 10);
+
+            // Разметка осей
+            for (let i = -5; i <= 5; i++) {
+                if (i === 0) continue;
+                const posX = centerX + i * unit;
+                const posY = centerY - i * unit;
+
+                // Метки на оси X
+                ctx.beginPath();
+                ctx.moveTo(posX, centerY - 5);
+                ctx.lineTo(posX, centerY + 5);
+                ctx.stroke();
+                ctx.fillText(i.toString(), posX - 5, centerY + 20);
+
+                // Метки на оси Y
+                ctx.beginPath();
+                ctx.moveTo(centerX - 5, posY);
+                ctx.lineTo(centerX + 5, posY);
+                ctx.stroke();
+                ctx.fillText(i.toString(), centerX + 10, posY + 5);
+            }
+
+            // Рисуем область
+            ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+
+            // 1. Круг в 1-й четверти
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, currentR * unit, -Math.PI/2, 0, false);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 2. Треугольник во 2-й четверти
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(centerX - currentR * unit, centerY);
+            ctx.lineTo(centerX, centerY - currentR * unit);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 3. Прямоугольник в 3-й четверти
+            ctx.beginPath();
+            ctx.rect(
+                centerX - currentR/2 * unit,
+                centerY,
+                currentR/2 * unit,
+                currentR * unit
+            );
+            ctx.fill();
+            ctx.stroke();
+
+            // Рисуем точки из таблицы
+            drawPoints(ctx, currentR);
+        }
+
+        // Обработка клика по графику
+        function handleCanvasClick(e) {
+            const canvas = document.getElementById('graph');
+            const rect = canvas.getBoundingClientRect();
+
+            // Координаты клика относительно canvas
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            // Преобразуем в математические координаты
+            let x = (clickX - centerX) / unit;
+            let y = (centerY - clickY) / unit;
+
+            // Округляем X до ближайшего допустимого значения
+            const allowedX = [-5, -4, -3, -2, -1, 0, 1, 2, 3];
+            x = allowedX.reduce((a, b) => Math.abs(b - x) < Math.abs(a - x) ? b : a);
+
+            // Ограничиваем Y и округляем
+            y = Math.max(-3, Math.min(3, y));
+            y = Math.round(y * 100) / 100;
+
+            // Получаем текущий R
+            const rInput = document.getElementById('inputForm:r');
+            let r = 1.0;
+            if (rInput && rInput.value) {
+                r = parseFloat(rInput.value) || 1.0;
+            }
+
+            // Заполняем форму
+            const xRadios = document.querySelectorAll('input[name="inputForm:x"]');
+            xRadios.forEach(function(radio) {
+                if (Math.abs(parseFloat(radio.value) - x) < 0.001) {
+                    radio.checked = true;
+                    radio.dispatchEvent(new Event('change'));
+                }
+            });
+
+            const yInput = document.getElementById('inputForm:y');
+            if (yInput) {
+                yInput.value = y;
+                yInput.dispatchEvent(new Event('change'));
+            }
+
+            // Отправляем форму
+            setTimeout(function() {
+                document.getElementById('inputForm:checkBtn').click();
+            }, 100);
+        }
+
+        // Изменение значения R
+        function changeR(delta) {
+            const rInput = document.getElementById('inputForm:r');
+            if (!rInput) return;
+
+            let value = parseFloat(rInput.value) || 1.0;
+            value += delta;
+
+            // Ограничиваем
+            if (value < 1) value = 1;
+            if (value > 3) value = 3;
+
+            // Округляем до 0.5
+            value = Math.round(value * 2) / 2;
+
+            rInput.value = value.toFixed(1);
+
+            // Перерисовываем график
+            setTimeout(drawCanvas, 50);
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Настраиваем обработчик клика по графику
+            const canvas = document.getElementById('graph');
+            if (canvas) {
+                canvas.addEventListener('click', handleCanvasClick);
+            }
+
+            // Настраиваем обработчики для обновления графика
+            const rInput = document.getElementById('inputForm:r');
+            if (rInput) {
+                rInput.addEventListener('change', drawCanvas);
+            }
+
+            // Первоначальная отрисовка графика
+            setTimeout(drawCanvas, 100);
+        });
+        //]]>
+    </script>
+</h:head>
+
+<h:body>
+    <div class="container">
+        <!-- ЗАГОЛОВОК -->
+        <div class="header">
+            <h1>Проверка попадания точки в область</h1>
+            <div class="student-info">
+                <p><strong>ФИО:</strong> Валиев Руслан Новруз оглы</p>
+                <p><strong>Группа:</strong> P3231</p>
+                <p><strong>Вариант:</strong> 8394</p>
+            </div>
+        </div>
+
+        <!-- ФОРМА + ГРАФИК -->
+        <div class="main-content">
+            <div class="input-section">
+                <h:form id="inputForm">
+                    <!-- Поле X (радиокнопки) -->
+                    <div class="form-group">
+                        <label>Координата X:</label>
+                        <div class="radio-group">
+                            <h:selectOneRadio id="x" value="#{pointBean.x}" layout="pageDirection"
+                                              required="true" requiredMessage="Выберите X">
+                                <f:selectItem itemValue="-5" itemLabel="-5" />
+                                <f:selectItem itemValue="-4" itemLabel="-4" />
+                                <f:selectItem itemValue="-3" itemLabel="-3" />
+                                <f:selectItem itemValue="-2" itemLabel="-2" />
+                                <f:selectItem itemValue="-1" itemLabel="-1" />
+                                <f:selectItem itemValue="0" itemLabel="0" />
+                                <f:selectItem itemValue="1" itemLabel="1" />
+                                <f:selectItem itemValue="2" itemLabel="2" />
+                                <f:selectItem itemValue="3" itemLabel="3" />
+                            </h:selectOneRadio>
+                        </div>
+                        <h:message for="x" style="color: red;" />
+                    </div>
+
+                    <!-- Поле Y -->
+                    <div class="form-group">
+                        <label for="y">Координата Y (-3 до 3):</label>
+                        <h:inputText id="y" value="#{pointBean.y}"
+                                     required="true" requiredMessage="Введите Y"
+                                     style="width: 100%;"
+                                     onchange="this.value = this.value.replace(/,/g, '.')">
+                            <f:validateDoubleRange minimum="-3" maximum="3" />
+                        </h:inputText>
+                        <h:message for="y" style="color: red;" />
+                    </div>
+
+                    <!-- Поле R -->
+                    <div class="form-group">
+                        <label for="r">Радиус R (1 до 3):</label>
+                        <div class="spinner-group">
+                            <button type="button" class="spinner-btn" onclick="changeR(-0.5)">-</button>
+                            <h:inputText id="r" value="#{pointBean.r}"
+                                         required="true" requiredMessage="Введите R"
+                                         style="width: 100%;"
+                                         onchange="this.value = this.value.replace(/,/g, '.')">
+                                <f:validateDoubleRange minimum="1" maximum="3" />
+                            </h:inputText>
+                            <button type="button" class="spinner-btn" onclick="changeR(0.5)">+</button>
+                        </div>
+                        <small>Шаг: 0.5</small>
+                        <h:message for="r" style="color: red;" />
+                    </div>
+
+                    <!-- Кнопки -->
+                    <div style="margin-top: 20px; text-align: center;">
+                        <h:commandButton id="checkBtn" value="Проверить"
+                                         action="#{pointBean.checkPoint}"
+                                         styleClass="btn btn-primary" />
+
+                        <h:commandButton value="Очистить результаты"
+                                         action="#{pointBean.clearHistory}"
+                                         immediate="true"
+                                         styleClass="btn btn-warning"
+                                         onclick="return confirm('Очистить все результаты?')" />
+                    </div>
+                </h:form>
+            </div>
+
+            <div class="graph-section">
+                <h3 style="text-align: center;">График области</h3>
+                <div style="text-align: center;">
+                    <canvas id="graph" width="400" height="400"></canvas>
+                </div>
+                <p class="graph-hint">Кликните по графику для ввода координат</p>
+            </div>
+        </div>
+
+        <!-- ТАБЛИЦА РЕЗУЛЬТАТОВ -->
+        <div style="margin-top: 30px;">
+            <h3 style="text-align: center;">Результаты проверок</h3>
+            <h:form id="resultsForm">
+                <h:dataTable value="#{pointBean.results}" var="result"
+                             styleClass="results-table"
+                             rendered="#{not empty pointBean.results}">
+                    <h:column>
+                        <f:facet name="header">X</f:facet>
+                        <h:outputText value="#{result.x}">
+                            <f:convertNumber pattern="0.##" />
+                        </h:outputText>
+                    </h:column>
+
+                    <h:column>
+                        <f:facet name="header">Y</f:facet>
+                        #{result.y}
+                    </h:column>
+
+                    <h:column>
+                        <f:facet name="header">R</f:facet>
+                        <h:outputText value="#{result.r}">
+                            <f:convertNumber pattern="0.0" />
+                        </h:outputText>
+                    </h:column>
+
+                    <h:column>
+                        <f:facet name="header">Результат</f:facet>
+                        <span style="color: #{result.color}; font-weight: bold;">
+                            #{result.formattedResult}
+                        </span>
+                    </h:column>
+
+                    <h:column>
+                        <f:facet name="header">Время</f:facet>
+                        #{result.formattedTime}
+                    </h:column>
+
+                    <h:column>
+                        <f:facet name="header">Время выполнения</f:facet>
+                        #{result.formattedExecutionTime}
+                    </h:column>
+                </h:dataTable>
+
+                <h:panelGroup rendered="#{empty pointBean.results}">
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        Нет результатов для отображения
+                    </div>
+                </h:panelGroup>
+            </h:form>
+        </div>
+
+        <!-- НАВИГАЦИЯ -->
+        <div style="text-align: center; margin-top: 30px;">
+            <h:form>
+                <h:commandButton value="Вернуться на стартовую страницу"
+                                 action="index"/>
+            </h:form>
+        </div>
+    </div>
+</h:body>
+</html>

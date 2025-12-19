@@ -25,8 +25,8 @@ public class PointRepository {
             emf.close();
         }
     }
-//остальные методы синхронизируем
-    public synchronized void save(PointResult point) {
+
+    public void save(PointResult point) {
         EntityManager em = emf.createEntityManager();
         try {
             em.getTransaction().begin();
@@ -42,7 +42,7 @@ public class PointRepository {
         }
     }
 
-    public synchronized List<PointResult> findAll() {
+    public List<PointResult> findAll() {
         EntityManager em = emf.createEntityManager();
         try {
             return em.createQuery(
@@ -54,7 +54,7 @@ public class PointRepository {
         }
     }
 
-    public synchronized void deleteAll() {
+    public void deleteAll() {
         EntityManager em = emf.createEntityManager();
         try {
             em.getTransaction().begin();

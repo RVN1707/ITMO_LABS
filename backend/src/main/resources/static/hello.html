@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Проверка попадания точки в область</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 1208px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .content {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .form-container, .graph-container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+            flex: 1;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        .x-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .r-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #000;
+        }
+        @media (max-width: 1208px) {
+            .container {
+                padding: 15px;
+            }
+            .content {
+                flex-direction: column;
+            }
+        }
+        @media (max-width: 699px) {
+            .container {
+                padding: 10px;
+            }
+            .form-container, .graph-container {
+                padding: 15px;
+            }
+            .x-options {
+                justify-content: center;
+            }
+            .r-controls {
+                justify-content: center;
+            }
+            button {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            table {
+                font-size: 14px;
+            }
+            th, td {
+                padding: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="container">
+        <div class="header">
+            <h1>Проверка попадания точки в область</h1>
+            <p><strong>ФИО:</strong> Валиев Руслан Новруз оглы</p>
+            <p><strong>Группа:</strong> P3231</p>
+            <p><strong>Вариант:</strong> 123</p>
+        </div>
+
+        <div class="content">
+            <div class="form-container">
+                <form @submit.prevent="checkPoint">
+                    <div class="form-group">
+                        <label>Координата X:</label>
+                        <div class="x-options">
+                            <label v-for="xValue in allowedXValues" :key="xValue">
+                                <input type="radio" v-model="point.x" :value="xValue">
+                                {{ xValue }}
+                            </label>
+                        </div>
+                        <div v-if="errors.x">{{ errors.x }}</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Координата Y (-3 до 3):</label>
+                        <input type="text" v-model="point.y" @input="validateY">
+                        <div v-if="errors.y">{{ errors.y }}</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Радиус R (1 до 3, шаг 0.5):</label>
+                        <div class="r-controls">
+                            <button type="button" @click="changeR(-0.5)">-</button>
+                            <input type="text" v-model="point.r" readonly>
+                            <button type="button" @click="changeR(0.5)">+</button>
+                        </div>
+                        <div v-if="errors.r">{{ errors.r }}</div>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit">Проверить</button>
+                        <button type="button" @click="clearResults">Очистить результаты</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="graph-container">
+                <h3>График области</h3>
+                <div>
+                    <canvas id="graph" width="400" height="400"></canvas>
+                </div>
+                <p>Кликните по графику для ввода координат</p>
+            </div>
+        </div>
+
+        <div>
+            <h3>Результаты проверок</h3>
+            <div v-if="results.length > 0">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>X</th>
+                        <th>Y</th>
+                        <th>R</th>
+                        <th>Результат</th>
+                        <th>Время</th>
+                        <th>Время выполнения</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="(result, index) in results" :key="index">
+                        <td>{{ formatNumber(result.x) }}</td>
+                        <td>{{ result.y }}</td>
+                        <td>{{ formatNumber(result.r) }}</td>
+                        <td :style="{color: result.color}">
+                            {{ result.formattedResult }}
+                        </td>
+                        <td>{{ result.formattedTime }}</td>
+                        <td>{{ result.formattedExecutionTime }}</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div v-else>
+                Нет результатов для отображения
+            </div>
+        </div>
+
+        <div>
+            <form action="/perform_logout" method="post">
+                <button type="submit">Выйти из системы</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            const point = ref({ x: null, y: '', r: 1.0 });
+            const results = ref([]);
+            const errors = ref({ x: '', y: '', r: '' });
+
+            const allowedXValues = ref([-5, -4, -3, -2, -1, 0, 1, 2, 3]);
+
+            const centerX = 200;
+            const centerY = 200;
+            const unit = 40;
+            let canvas = null;
+            let ctx = null;
+            let isCanvasReady = false;
+
+            const validateY = () => {
+                const y = parseFloat(point.value.y);
+                if (isNaN(y) || y < -3 || y > 3) {
+                    errors.value.y = 'Y должен быть числом от -3 до 3';
+                    return false;
+                }
+                errors.value.y = '';
+                return true;
+            };
+
+            const validateForm = () => {
+                let valid = true;
+
+                if (point.value.x === null) {
+                    errors.value.x = 'Выберите значение X';
+                    valid = false;
+                } else {
+                    errors.value.x = '';
+                }
+
+                if (!validateY()) {
+                    valid = false;
+                }
+
+                const r = parseFloat(point.value.r);
+                if (isNaN(r) || r < 1 || r > 3) {
+                    errors.value.r = 'R должен быть от 1 до 3';
+                    valid = false;
+                } else {
+                    errors.value.r = '';
+                }
+
+                return valid;
+            };
+
+            const checkPoint = async () => {
+                if (!validateForm()) return;
+
+                try {
+                    const response = await axios.post('/api/points/check', point.value);
+                    results.value.unshift(response.data);
+                    drawCanvas();
+                } catch (error) {
+                    alert('Ошибка при проверке точки. Проверьте входные данные.');
+                }
+            };
+
+            const changeR = (delta) => {
+                let r = parseFloat(point.value.r) || 1.0;
+                r += delta;
+
+                if (r < 1) r = 1;
+                if (r > 3) r = 3;
+                r = Math.round(r * 2) / 2;
+
+                point.value.r = r.toFixed(1);
+                drawCanvas();
+            };
+
+            const clearResults = async () => {
+                if (!confirm('Очистить все результаты?')) return;
+
+                try {
+                    await axios.delete('/api/points/clear');
+                    results.value = [];
+                    drawCanvas();
+                } catch (error) {
+                    console.error('Ошибка при очистке результатов:', error);
+                }
+            };
+
+            const formatNumber = (num) => {
+                return parseFloat(num).toFixed(2);
+            };
+
+            const initCanvas = () => {
+                canvas = document.getElementById('graph');
+                if (!canvas) return;
+
+                ctx = canvas.getContext('2d');
+                drawCanvas();
+                isCanvasReady = true;
+            };
+
+            const drawCanvas = () => {
+                if (!canvas || !ctx) return;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                const currentR = parseFloat(point.value.r) || 1.0;
+
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                ctx.moveTo(0, centerY);
+                ctx.lineTo(400, centerY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, 0);
+                ctx.lineTo(centerX, 400);
+                ctx.stroke();
+
+                ctx.font = '12px Arial';
+                ctx.fillStyle = 'black';
+                ctx.fillText('X', 390, centerY - 5);
+                ctx.fillText('Y', centerX + 5, 10);
+
+                for (let i = -5; i <= 5; i++) {
+                    if (i === 0) continue;
+                    const posX = centerX + i * unit;
+                    const posY = centerY - i * unit;
+
+                    ctx.beginPath();
+                    ctx.moveTo(posX, centerY - 5);
+                    ctx.lineTo(posX, centerY + 5);
+                    ctx.stroke();
+                    ctx.fillText(i.toString(), posX - 5, centerY + 20);
+
+                    ctx.beginPath();
+                    ctx.moveTo(centerX - 5, posY);
+                    ctx.lineTo(centerX + 5, posY);
+                    ctx.stroke();
+                    ctx.fillText(i.toString(), centerX + 10, posY + 5);
+                }
+
+                ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, currentR * unit, -Math.PI/2, 0, false);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX - currentR * unit, centerY);
+                ctx.lineTo(centerX, centerY - currentR * unit);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.rect(
+                    centerX - currentR/2 * unit,
+                    centerY,
+                    currentR/2 * unit,
+                    currentR * unit
+                );
+                ctx.fill();
+                ctx.stroke();
+
+                drawPointsOnCanvas(currentR);
+            };
+
+            const drawPointsOnCanvas = (currentR) => {
+                if (!ctx) return;
+
+                results.value.forEach(result => {
+                    const scaleFactor = currentR / result.r;
+                    const scaledX = result.x * scaleFactor;
+                    const scaledY = result.y * scaleFactor;
+
+                    const canvasX = centerX + scaledX * unit;
+                    const canvasY = centerY - scaledY * unit;
+
+                    ctx.fillStyle = result.hit ? 'green' : 'red';
+
+                    ctx.beginPath();
+                    ctx.arc(canvasX, canvasY, 5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                });
+            };
+
+            const handleCanvasClick = (event) => {
+                if (!canvas || !isCanvasReady) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const clickX = event.clientX - rect.left;
+                const clickY = event.clientY - rect.top;
+
+                let x = Math.round((clickX - centerX) / unit);
+                let y = (centerY - clickY) / unit;
+
+                x = Math.max(-5, Math.min(3, x));
+                y = Math.max(-3, Math.min(3, y));
+                y = Math.round(y * 100) / 100;
+
+                point.value.x = x;
+                point.value.y = y.toFixed(2);
+
+                nextTick(() => {
+                    if (point.value.x !== null && point.value.y !== '') {
+                        checkPoint();
+                    }
+                });
+            };
+
+            const loadResults = async () => {
+                try {
+                    const response = await axios.get('/api/points/results');
+                    results.value = response.data || [];
+                    nextTick(() => {
+                        drawCanvas();
+                    });
+                } catch (error) {
+                    console.error('Ошибка при загрузке результатов:', error);
+                }
+            };
+
+            onMounted(() => {
+                initCanvas();
+                loadResults();
+
+                nextTick(() => {
+                    canvas = document.getElementById('graph');
+                    if (canvas) {
+                        canvas.addEventListener('click', handleCanvasClick);
+                    }
+                });
+            });
+
+            return {
+                point,
+                results,
+                errors,
+                allowedXValues,
+                validateY,
+                checkPoint,
+                changeR,
+                clearResults,
+                formatNumber
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

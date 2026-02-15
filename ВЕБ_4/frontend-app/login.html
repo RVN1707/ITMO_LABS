@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Вход в систему</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .header {
+            margin-bottom: 20px;
+        }
+        .container {
+            max-width: 1208px;
+            margin: 0 auto;
+        }
+        form {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        form div {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+        input {
+            padding: 8px;
+            width: 100%;
+            max-width: 300px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .error {
+            color: red;
+            margin-bottom: 15px;
+        }
+        .success {
+            color: green;
+            margin-bottom: 15px;
+        }
+        @media (max-width: 1208px) {
+            .container {
+                padding: 0 15px;
+            }
+            form {
+                padding: 15px;
+            }
+        }
+        @media (max-width: 699px) {
+            body {
+                padding: 10px;
+            }
+            label {
+                display: block;
+                width: 100%;
+                margin-bottom: 5px;
+            }
+            input {
+                max-width: 100%;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="container">
+        <div class="header">
+            <h1>Вход в систему</h1>
+            <p><strong>ФИО:</strong> Валиев Руслан Новруз оглы</p>
+            <p><strong>Группа:</strong> P3231</p>
+            <p><strong>Вариант:</strong> 123</p>
+        </div>
+
+        <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="success">{{ successMessage }}</div>
+
+        <form @submit.prevent="login">
+            <div>
+                <label for="username">Логин:</label>
+                <input type="text" id="username" v-model="username" required>
+            </div>
+            <div>
+                <label for="password">Пароль:</label>
+                <input type="password" id="password" v-model="password" required>
+            </div>
+            <div>
+                <button type="submit">Войти</button>
+            </div>
+        </form>
+
+        <p>Нет аккаунта? <a href="/register.html">Зарегистрироваться</a></p>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+
+    axios.defaults.withCredentials = true;
+
+    createApp({
+        setup() {
+            const username = ref('');
+            const password = ref('');
+            const errorMessage = ref('');
+            const successMessage = ref('');
+
+            const login = async () => {
+                errorMessage.value = '';
+                successMessage.value = '';
+
+                const formData = new URLSearchParams();
+                formData.append('username', username.value);
+                formData.append('password', password.value);
+
+                try {
+                    const response = await axios.post('http://localhost:8080/api/auth/login', formData, {
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    });
+                    
+                    if (response.data.status === 'success') {
+                        window.location.href = 'http://localhost:3000/hello.html';
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    if (error.response && error.response.status === 401) {
+                        errorMessage.value = 'Неверный логин или пароль!';
+                    } else {
+                        errorMessage.value = 'Ошибка при входе. Попробуйте позже.';
+                    }
+                }
+            };
+
+            onMounted(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.has('registered')) {
+                    successMessage.value = 'Регистрация успешна! Теперь войдите.';
+                }
+                if (params.has('logout')) {
+                    successMessage.value = 'Вы успешно вышли из системы.';
+                }
+            });
+
+            return {
+                username,
+                password,
+                errorMessage,
+                successMessage,
+                login
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
